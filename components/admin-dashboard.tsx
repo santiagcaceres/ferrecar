@@ -5,9 +5,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { storage } from "@/lib/storage"
+import { supabaseStorage } from "@/lib/supabase-storage"
 import { getToday, getStartOfWeek, getStartOfMonth, formatCurrency } from "@/lib/date-utils"
-import { DollarSign, Wrench, Car, TrendingUp, Calendar } from "lucide-react"
+import { DollarSign, Wrench, Car, TrendingUp, Calendar } from 'lucide-react'
 import { ServicesList } from "./services-list"
 
 type PeriodType = "day" | "week" | "month" | "custom"
@@ -29,7 +29,7 @@ export function AdminDashboard() {
     calculateStats()
   }, [period])
 
-  const calculateStats = () => {
+  const calculateStats = async () => {
     const today = getToday()
     let startDate = today
     let endDate = today
@@ -57,16 +57,20 @@ export function AdminDashboard() {
 
     setDateRange({ start: startDate, end: endDate })
 
-    const services = storage.getServicesByDateRange(startDate, endDate)
-    const totalRevenue = services.reduce((sum, service) => sum + service.costo, 0)
-    const uniqueVehicles = new Set(services.map((s) => s.vehicleId)).size
+    try {
+      const services = await supabaseStorage.getServicesByDateRange(startDate, endDate)
+      const totalRevenue = services.reduce((sum, service) => sum + service.costo, 0)
+      const uniqueVehicles = new Set(services.map((s) => s.vehicleId)).size
 
-    setStats({
-      totalServices: services.length,
-      totalRevenue,
-      totalVehicles: uniqueVehicles,
-      averageServiceCost: services.length > 0 ? totalRevenue / services.length : 0,
-    })
+      setStats({
+        totalServices: services.length,
+        totalRevenue,
+        totalVehicles: uniqueVehicles,
+        averageServiceCost: services.length > 0 ? totalRevenue / services.length : 0,
+      })
+    } catch (error) {
+      console.error("Error calculando estadísticas:", error)
+    }
   }
 
   const searchBySpecificDate = () => {

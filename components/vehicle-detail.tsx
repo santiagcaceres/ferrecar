@@ -3,10 +3,11 @@
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { storage, type Vehicle, type Service, type Cliente, TIPOS_ACEITE } from "@/lib/storage"
-import { ArrowLeft, Car, User, Phone, Mail, Calendar, Wrench, Download } from "lucide-react"
+import { supabaseStorage, type Vehicle, type Service, type Cliente, TIPOS_ACEITE } from "@/lib/supabase-storage"
+import { ArrowLeft, Car, User, Phone, Mail, Calendar, Wrench, Download, Trash2 } from 'lucide-react'
 import { formatDate, formatCurrency } from "@/lib/date-utils"
 import { generateInvoicePDF } from "@/lib/pdf-generator"
+import { ConfirmDialog } from "@/components/confirm-dialog"
 
 interface VehicleDetailProps {
   vehicleId: string
@@ -18,16 +19,30 @@ export function VehicleDetail({ vehicleId, onBack, onAddService }: VehicleDetail
   const [vehicle, setVehicle] = useState<Vehicle | null>(null)
   const [services, setServices] = useState<Service[]>([])
   const [cliente, setCliente] = useState<Cliente | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
 
   useEffect(() => {
-    const v = storage.getVehicleById(vehicleId)
-    setVehicle(v)
-    if (v) {
-      setServices(storage.getServicesByVehicle(v.id))
-      const c = storage.getClienteById(v.clienteId)
-      setCliente(c)
-    }
+    loadData()
   }, [vehicleId])
+
+  const loadData = async () => {
+    setLoading(true)
+    try {
+      const v = await supabaseStorage.getVehicleById(vehicleId)
+      setVehicle(v)
+      if (v) {
+        const servs = await supabaseStorage.getServicesByVehicle(v.id)
+        setServices(servs)
+        const c = await supabaseStorage.getClienteById(v.clienteId)
+        setCliente(c)
+      }
+    } catch (error) {
+      console.error("Error cargando datos:", error)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const handleDownloadInvoice = (service: Service) => {
     if (!vehicle || !cliente) {
@@ -35,6 +50,28 @@ export function VehicleDetail({ vehicleId, onBack, onAddService }: VehicleDetail
       return
     }
     generateInvoicePDF({ service, vehicle, cliente })
+  }
+
+  const handleDeleteVehicle = async () => {
+    if (!vehicle) return
+    
+    const success = await supabaseStorage.deleteVehicle(vehicle.id)
+    if (success) {
+      setShowDeleteDialog(false)
+      onBack()
+    } else {
+      alert("Error al eliminar el vehículo. Verifica que no tenga servicios asociados.")
+    }
+  }
+
+  if (loading) {
+    return (
+      <Card className="bg-white border-primary/20">
+        <CardContent className="py-8">
+          <p className="text-center text-muted-foreground">Cargando...</p>
+        </CardContent>
+      </Card>
+    )
   }
 
   if (!vehicle) {
@@ -54,7 +91,23 @@ export function VehicleDetail({ vehicleId, onBack, onAddService }: VehicleDetail
           <ArrowLeft className="h-4 w-4 mr-2" />
           Volver
         </Button>
+        <Button
+          variant="outline"
+          onClick={() => setShowDeleteDialog(true)}
+          className="border-red-300 text-red-600 hover:bg-red-50"
+        >
+          <Trash2 className="h-4 w-4 mr-2" />
+          Eliminar Vehículo
+        </Button>
       </div>
+
+      <ConfirmDialog
+        isOpen={showDeleteDialog}
+        title="Eliminar Vehículo"
+        message={`¿Está seguro que desea eliminar el vehículo ${vehicle.marca} ${vehicle.modelo} - ${vehicle.matricula}? Esta acción no se puede deshacer.`}
+        onConfirm={handleDeleteVehicle}
+        onCancel={() => setShowDeleteDialog(false)}
+      />
 
       <Card className="bg-white border-primary/20">
         <CardHeader>

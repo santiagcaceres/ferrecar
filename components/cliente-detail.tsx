@@ -1,12 +1,13 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { storage, type Cliente, type Vehicle, type Service } from "@/lib/storage"
+import { supabaseStorage, type Cliente, type Vehicle, type Service } from "@/lib/supabase-storage"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { ArrowLeft, User, Phone, Mail, FileText, Award as IdCard, Car, Calendar } from "lucide-react"
+import { ArrowLeft, User, Phone, Mail, FileText, Award as IdCard, Car, Calendar, Trash2 } from 'lucide-react'
 import { formatCurrency } from "@/lib/date-utils"
+import { ConfirmDialog } from "@/components/confirm-dialog"
 
 interface ClienteDetailProps {
   cliente: Cliente
@@ -16,31 +17,78 @@ interface ClienteDetailProps {
 export function ClienteDetail({ cliente, onBack }: ClienteDetailProps) {
   const [vehiculos, setVehiculos] = useState<Vehicle[]>([])
   const [servicios, setServicios] = useState<Service[]>([])
+  const [loading, setLoading] = useState(true)
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
 
   useEffect(() => {
     loadData()
   }, [cliente.id])
 
-  const loadData = () => {
-    const vehs = storage.getVehiclesByCliente(cliente.id)
-    setVehiculos(vehs)
+  const loadData = async () => {
+    setLoading(true)
+    try {
+      const vehs = await supabaseStorage.getVehiclesByCliente(cliente.id)
+      setVehiculos(vehs)
 
-    const allServicios: Service[] = []
-    vehs.forEach((veh) => {
-      const servs = storage.getServicesByVehicle(veh.id)
-      allServicios.push(...servs)
-    })
-    setServicios(allServicios.sort((a, b) => b.fecha.localeCompare(a.fecha)))
+      const allServicios: Service[] = []
+      for (const veh of vehs) {
+        const servs = await supabaseStorage.getServicesByVehicle(veh.id)
+        allServicios.push(...servs)
+      }
+      setServicios(allServicios.sort((a, b) => b.fecha.localeCompare(a.fecha)))
+    } catch (error) {
+      console.error("Error cargando datos:", error)
+    } finally {
+      setLoading(false)
+    }
   }
 
   const totalGastado = servicios.reduce((sum, s) => sum + s.costo, 0)
 
+  const handleDeleteCliente = async () => {
+    const success = await supabaseStorage.deleteCliente(cliente.id)
+    if (success) {
+      setShowDeleteDialog(false)
+      onBack()
+    } else {
+      alert("Error al eliminar el cliente. Verifica que no tenga vehículos asociados.")
+    }
+  }
+
+  if (loading) {
+    return (
+      <Card className="bg-white border-primary/20">
+        <CardContent className="py-8">
+          <p className="text-center text-muted-foreground">Cargando...</p>
+        </CardContent>
+      </Card>
+    )
+  }
+
   return (
     <div className="space-y-6">
-      <Button variant="outline" onClick={onBack} className="border-primary/30 text-foreground bg-transparent">
-        <ArrowLeft className="h-4 w-4 mr-2" />
-        Volver
-      </Button>
+      <div className="flex items-center gap-4">
+        <Button variant="outline" onClick={onBack} className="border-primary/30 text-foreground bg-transparent">
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Volver
+        </Button>
+        <Button
+          variant="outline"
+          onClick={() => setShowDeleteDialog(true)}
+          className="border-red-300 text-red-600 hover:bg-red-50"
+        >
+          <Trash2 className="h-4 w-4 mr-2" />
+          Eliminar Cliente
+        </Button>
+      </div>
+
+      <ConfirmDialog
+        isOpen={showDeleteDialog}
+        title="Eliminar Cliente"
+        message={`¿Está seguro que desea eliminar al cliente ${cliente.nombre}? Esta acción no se puede deshacer y eliminará todos sus vehículos y servicios asociados.`}
+        onConfirm={handleDeleteCliente}
+        onCancel={() => setShowDeleteDialog(false)}
+      />
 
       {/* Información del Cliente */}
       <Card className="bg-white border-primary/20">
@@ -130,7 +178,7 @@ export function ClienteDetail({ cliente, onBack }: ClienteDetailProps) {
                     <p className="text-sm text-foreground/60">Matrícula: {vehiculo.matricula}</p>
                   </div>
                   <Badge className="bg-primary/10 text-primary hover:bg-primary/20">
-                    {storage.getServicesByVehicle(vehiculo.id).length} servicios
+                    {servicios.filter((s) => s.vehicleId === vehiculo.id).length} servicios
                   </Badge>
                 </div>
               ))}
@@ -153,7 +201,7 @@ export function ClienteDetail({ cliente, onBack }: ClienteDetailProps) {
           ) : (
             <div className="space-y-3">
               {servicios.map((servicio) => {
-                const vehiculo = storage.getVehicleById(servicio.vehicleId)
+                const vehiculo = vehiculos.find((v) => v.id === servicio.vehicleId)
                 return (
                   <div key={servicio.id} className="p-4 border border-primary/10 rounded-lg space-y-2">
                     <div className="flex items-start justify-between">

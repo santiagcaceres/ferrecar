@@ -5,23 +5,20 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Button } from "@/components/ui/button"
-import { storage, type Service, type Vehicle, type Cliente, SERVICIOS_DISPONIBLES, TIPOS_ACEITE } from "@/lib/storage"
 import {
-  Gauge,
-  User,
-  DollarSign,
-  Wrench,
-  Filter,
-  Download,
-  CheckCircle,
-  Clock,
-  Mail,
-  MessageCircle,
-} from "lucide-react"
+  supabaseStorage,
+  type Service,
+  type Vehicle,
+  type Cliente,
+  SERVICIOS_DISPONIBLES,
+  TIPOS_ACEITE,
+} from "@/lib/supabase-storage"
+import { Gauge, User, DollarSign, Wrench, Filter, Download, CheckCircle, Clock, Mail, MessageCircle, Trash2 } from 'lucide-react'
 import { formatDate, formatCurrency } from "@/lib/date-utils"
 import { generateInvoicePDF } from "@/lib/pdf-generator"
 import { sendWhatsAppNotification, sendEmailNotification } from "@/lib/notifications"
 import { useToast } from "@/hooks/use-toast"
+import { ConfirmDialog } from "@/components/confirm-dialog"
 
 interface ServicesListProps {
   startDate?: string
@@ -36,6 +33,8 @@ export function ServicesList({ startDate, endDate }: ServicesListProps) {
   const [clientes, setClientes] = useState<Map<string, Cliente>>(new Map())
   const [selectedServiceTypes, setSelectedServiceTypes] = useState<string[]>([])
   const [showFilters, setShowFilters] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [deleteServiceId, setDeleteServiceId] = useState<string | null>(null)
 
   useEffect(() => {
     loadServices()
@@ -45,36 +44,45 @@ export function ServicesList({ startDate, endDate }: ServicesListProps) {
     applyFilters()
   }, [services, selectedServiceTypes])
 
-  const loadServices = () => {
-    let allServices = storage.getServices()
+  const loadServices = async () => {
+    setLoading(true)
+    try {
+      let allServices = []
 
-    if (startDate && endDate) {
-      allServices = storage.getServicesByDateRange(startDate, endDate)
-    }
+      if (startDate && endDate) {
+        allServices = await supabaseStorage.getServicesByDateRange(startDate, endDate)
+      } else {
+        allServices = await supabaseStorage.getServices()
+      }
 
-    allServices.sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime())
-    setServices(allServices)
+      allServices.sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime())
+      setServices(allServices)
 
-    const vehiclesMap = new Map<string, Vehicle>()
-    const clientesMap = new Map<string, Cliente>()
+      const vehiclesMap = new Map<string, Vehicle>()
+      const clientesMap = new Map<string, Cliente>()
 
-    allServices.forEach((service) => {
-      if (!vehiclesMap.has(service.vehicleId)) {
-        const vehicle = storage.getVehicleById(service.vehicleId)
-        if (vehicle) {
-          vehiclesMap.set(service.vehicleId, vehicle)
+      for (const service of allServices) {
+        if (!vehiclesMap.has(service.vehicleId)) {
+          const vehicle = await supabaseStorage.getVehicleById(service.vehicleId)
+          if (vehicle) {
+            vehiclesMap.set(service.vehicleId, vehicle)
 
-          if (!clientesMap.has(vehicle.clienteId)) {
-            const cliente = storage.getClienteById(vehicle.clienteId)
-            if (cliente) {
-              clientesMap.set(vehicle.clienteId, cliente)
+            if (!clientesMap.has(vehicle.clienteId)) {
+              const cliente = await supabaseStorage.getClienteById(vehicle.clienteId)
+              if (cliente) {
+                clientesMap.set(vehicle.clienteId, cliente)
+              }
             }
           }
         }
       }
-    })
-    setVehicles(vehiclesMap)
-    setClientes(clientesMap)
+      setVehicles(vehiclesMap)
+      setClientes(clientesMap)
+    } catch (error) {
+      console.error("Error cargando servicios:", error)
+    } finally {
+      setLoading(false)
+    }
   }
 
   const applyFilters = () => {
@@ -114,7 +122,7 @@ export function ServicesList({ startDate, endDate }: ServicesListProps) {
     generateInvoicePDF({ service, vehicle, cliente })
   }
 
-  const handleFinalizarServicio = (service: Service) => {
+  const handleFinalizarServicio = async (service: Service) => {
     const vehicle = vehicles.get(service.vehicleId)
     if (!vehicle) {
       alert("No se encontró el vehículo")
@@ -127,7 +135,7 @@ export function ServicesList({ startDate, endDate }: ServicesListProps) {
       return
     }
 
-    const updatedService = storage.updateService(service.id, { estado: "Finalizado" })
+    const updatedService = await supabaseStorage.updateService(service.id, { estado: "Finalizado" })
     if (!updatedService) {
       alert("Error al finalizar el servicio")
       return
@@ -164,6 +172,28 @@ export function ServicesList({ startDate, endDate }: ServicesListProps) {
     })
   }
 
+  const handleDeleteService = async () => {
+    if (!deleteServiceId) return
+    
+    const success = await supabaseStorage.deleteService(deleteServiceId)
+    if (success) {
+      setDeleteServiceId(null)
+      loadServices()
+    } else {
+      alert("Error al eliminar el servicio")
+    }
+  }
+
+  if (loading) {
+    return (
+      <Card className="bg-white border-primary/20">
+        <CardContent className="py-8">
+          <p className="text-center text-muted-foreground">Cargando servicios...</p>
+        </CardContent>
+      </Card>
+    )
+  }
+
   if (services.length === 0) {
     return (
       <Card className="bg-white border-primary/20">
@@ -176,6 +206,14 @@ export function ServicesList({ startDate, endDate }: ServicesListProps) {
 
   return (
     <div className="space-y-4">
+      <ConfirmDialog
+        isOpen={deleteServiceId !== null}
+        title="Eliminar Servicio"
+        message="¿Está seguro que desea eliminar este servicio? Esta acción no se puede deshacer."
+        onConfirm={handleDeleteService}
+        onCancel={() => setDeleteServiceId(null)}
+      />
+
       <Card className="bg-white border-primary/20">
         <CardHeader className="cursor-pointer" onClick={() => setShowFilters(!showFilters)}>
           <CardTitle className="text-primary flex items-center justify-between">
@@ -270,6 +308,14 @@ export function ServicesList({ startDate, endDate }: ServicesListProps) {
                     >
                       <Download className="h-4 w-4 mr-1" />
                       Factura
+                    </Button>
+                    <Button
+                      onClick={() => setDeleteServiceId(service.id)}
+                      variant="outline"
+                      size="sm"
+                      className="border-red-300 text-red-600 hover:bg-red-50"
+                    >
+                      <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
                 </CardTitle>
