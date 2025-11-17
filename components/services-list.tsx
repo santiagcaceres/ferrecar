@@ -143,31 +143,62 @@ export function ServicesList({ startDate, endDate }: ServicesListProps) {
 
     loadServices()
 
+    try {
+      const response = await fetch('/api/send-notification', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          service: updatedService,
+          vehicle,
+          cliente,
+        }),
+      })
+
+      if (response.ok) {
+        toast({
+          title: "Servicio Finalizado",
+          description: `Email enviado a ${cliente.email} con la factura adjunta.`,
+          duration: 5000,
+        })
+      } else {
+        const errorData = await response.json()
+        toast({
+          title: "Servicio Finalizado",
+          description: `El servicio fue finalizado pero hubo un error al enviar el email: ${errorData.error}`,
+          variant: "destructive",
+          duration: 5000,
+        })
+      }
+    } catch (error) {
+      console.error('Error enviando notificación:', error)
+      toast({
+        title: "Servicio Finalizado",
+        description: "El servicio fue finalizado pero hubo un error al enviar el email.",
+        variant: "destructive",
+        duration: 5000,
+      })
+    }
+
     toast({
-      title: "Servicio Finalizado",
-      description: "¿Desea notificar al cliente?",
+      title: "Enviar por WhatsApp",
+      description: "¿Desea notificar al cliente por WhatsApp también?",
       duration: 10000,
       action: (
-        <div className="flex gap-2">
-          <Button
-            size="sm"
-            variant="outline"
-            className="bg-green-500 text-white hover:bg-green-600 border-0"
-            onClick={() => sendWhatsAppNotification(updatedService, vehicle, cliente)}
-          >
-            <MessageCircle className="h-4 w-4 mr-1" />
-            WhatsApp
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            className="bg-blue-500 text-white hover:bg-blue-600 border-0"
-            onClick={() => sendEmailNotification(updatedService, vehicle, cliente)}
-          >
-            <Mail className="h-4 w-4 mr-1" />
-            Email
-          </Button>
-        </div>
+        <Button
+          size="sm"
+          variant="outline"
+          className="bg-green-500 text-white hover:bg-green-600 border-0"
+          onClick={() => {
+            const mensaje = `Hola ${cliente.nombre}, su vehículo ${vehicle.marca} ${vehicle.modelo} (${vehicle.matricula}) está listo para retirar. Servicios realizados: ${updatedService.servicios.join(', ')}. Total: ${formatCurrency(updatedService.costo)}${updatedService.proximoCambioKm ? `. Próximo cambio de aceite: ${updatedService.proximoCambioKm.toLocaleString()} km` : ''}. ¡Gracias por confiar en FerreCar Service!`
+            const url = `https://wa.me/${cliente.telefono.replace(/\D/g, '')}?text=${encodeURIComponent(mensaje)}`
+            window.open(url, '_blank')
+          }}
+        >
+          <MessageCircle className="h-4 w-4 mr-1" />
+          Enviar WhatsApp
+        </Button>
       ),
     })
   }
