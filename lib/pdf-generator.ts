@@ -124,7 +124,7 @@ export async function generateInvoicePDF({
   doc.setFontSize(10)
   doc.setFont("helvetica", "normal")
   doc.text("Gracias por confiar en FerreCar Service", 105, 280, { align: "center" })
-  doc.text("www.ferrecar.com.uy - contacto@ferrecar.com.uy", 105, 286, { align: "center" })
+  doc.text("WhatsApp: 092 524 829 - contacto@ferrecar.com.uy", 105, 286, { align: "center" })
 
   const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
   

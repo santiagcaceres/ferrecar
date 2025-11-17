@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
-import { Lock } from "lucide-react"
+import { Lock } from 'lucide-react'
 
 interface LoginFormProps {
   onLogin: () => void
@@ -23,10 +23,9 @@ export function LoginForm({ onLogin }: LoginFormProps) {
     setError("")
     setIsLoading(true)
 
-    // Contraseña por defecto: "ancap2025"
     // En producción, esto debería ser verificado en el servidor
     setTimeout(() => {
-      if (password === "ancap2025") {
+      if (password === "ferrecar2025") {
         localStorage.setItem("ancap_authenticated", "true")
         onLogin()
       } else {
@@ -44,7 +43,7 @@ export function LoginForm({ onLogin }: LoginFormProps) {
           <div className="mx-auto w-20 h-20 bg-accent rounded-full flex items-center justify-center">
             <Lock className="h-10 w-10 text-primary" />
           </div>
-          <CardTitle className="text-3xl font-bold text-primary">Ancap-Ferre Car</CardTitle>
+          <CardTitle className="text-3xl font-bold text-primary">FerreCar Service</CardTitle>
           <CardDescription className="text-foreground/70 text-base">
             Sistema de Gestión de Servicios Vehiculares
           </CardDescription>
@@ -75,10 +74,6 @@ export function LoginForm({ onLogin }: LoginFormProps) {
             >
               {isLoading ? "Verificando..." : "Iniciar Sesión"}
             </Button>
-
-            <p className="text-xs text-center text-foreground/50 mt-4">
-              Contraseña por defecto: <span className="font-mono font-semibold">ancap2025</span>
-            </p>
           </form>
         </CardContent>
       </Card>

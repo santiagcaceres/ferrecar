@@ -390,6 +390,10 @@ export async function getVehiclesByCliente(clienteId: string): Promise<Vehicle[]
 }
 
 // Service functions
+export interface ServiceWithCliente extends Service {
+  clienteId?: string
+}
+
 export async function getServices(): Promise<Service[]> {
   const supabase = createClient()
   const { data, error } = await supabase
@@ -405,6 +409,7 @@ export async function getServices(): Promise<Service[]> {
   return (data || []).map((s) => ({
     id: s.id,
     vehicleId: s.vehiculo_id,
+    clienteId: s.cliente_id,
     fecha: s.fecha,
     kilometraje: s.kilometraje,
     servicios: s.servicios_realizados,
@@ -433,10 +438,17 @@ export async function saveService(
     proximoCambioAceite = service.kilometraje + duraciones[service.tipoAceite]
   }
 
+  const { data: vehicleData } = await supabase
+    .from("vehiculos")
+    .select("cliente_id")
+    .eq("id", service.vehicleId)
+    .single()
+
   const { data, error } = await supabase
     .from("servicios")
     .insert({
       vehiculo_id: service.vehicleId,
+      cliente_id: vehicleData?.cliente_id,
       fecha: service.fecha,
       kilometraje: service.kilometraje,
       servicios_realizados: service.servicios,
@@ -458,6 +470,7 @@ export async function saveService(
   return {
     id: data.id,
     vehicleId: data.vehiculo_id,
+    clienteId: data.cliente_id,
     fecha: data.fecha,
     kilometraje: data.kilometraje,
     servicios: data.servicios_realizados,
@@ -502,6 +515,7 @@ export async function updateService(
   return {
     id: data.id,
     vehicleId: data.vehiculo_id,
+    clienteId: data.cliente_id,
     fecha: data.fecha,
     kilometraje: data.kilometraje,
     servicios: data.servicios_realizados,
@@ -542,6 +556,36 @@ export async function getServicesByVehicle(vehicleId: string): Promise<Service[]
   return (data || []).map((s) => ({
     id: s.id,
     vehicleId: s.vehiculo_id,
+    clienteId: s.cliente_id,
+    fecha: s.fecha,
+    kilometraje: s.kilometraje,
+    servicios: s.servicios_realizados,
+    tipoAceite: s.tipo_aceite as TipoAceite | undefined,
+    observaciones: s.observaciones,
+    costo: parseFloat(s.costo),
+    mecanico: s.mecanico,
+    estado: s.estado as "En Proceso" | "Finalizado",
+    createdAt: s.created_at,
+  }))
+}
+
+export async function getServicesByCliente(clienteId: string): Promise<Service[]> {
+  const supabase = createClient()
+  const { data, error } = await supabase
+    .from("servicios")
+    .select("*")
+    .eq("cliente_id", clienteId)
+    .order("fecha", { ascending: false })
+
+  if (error) {
+    console.error("Error fetching services by cliente:", error)
+    return []
+  }
+
+  return (data || []).map((s) => ({
+    id: s.id,
+    vehicleId: s.vehiculo_id,
+    clienteId: s.cliente_id,
     fecha: s.fecha,
     kilometraje: s.kilometraje,
     servicios: s.servicios_realizados,
@@ -574,6 +618,7 @@ export async function getServicesByDateRange(
   return (data || []).map((s) => ({
     id: s.id,
     vehicleId: s.vehiculo_id,
+    clienteId: s.cliente_id,
     fecha: s.fecha,
     kilometraje: s.kilometraje,
     servicios: s.servicios_realizados,
@@ -610,5 +655,6 @@ export const supabaseStorage = {
   updateService,
   deleteService,
   getServicesByVehicle,
+  getServicesByCliente,
   getServicesByDateRange,
 }

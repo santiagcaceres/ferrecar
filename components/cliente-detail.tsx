@@ -27,15 +27,13 @@ export function ClienteDetail({ cliente, onBack }: ClienteDetailProps) {
   const loadData = async () => {
     setLoading(true)
     try {
-      const vehs = await supabaseStorage.getVehiclesByCliente(cliente.id)
+      const [vehs, servs] = await Promise.all([
+        supabaseStorage.getVehiclesByCliente(cliente.id),
+        supabaseStorage.getServicesByCliente(cliente.id)
+      ])
+      
       setVehiculos(vehs)
-
-      const allServicios: Service[] = []
-      for (const veh of vehs) {
-        const servs = await supabaseStorage.getServicesByVehicle(veh.id)
-        allServicios.push(...servs)
-      }
-      setServicios(allServicios.sort((a, b) => b.fecha.localeCompare(a.fecha)))
+      setServicios(servs.sort((a, b) => b.fecha.localeCompare(a.fecha)))
     } catch (error) {
       console.error("Error cargando datos:", error)
     } finally {
@@ -85,7 +83,7 @@ export function ClienteDetail({ cliente, onBack }: ClienteDetailProps) {
       <ConfirmDialog
         isOpen={showDeleteDialog}
         title="Eliminar Cliente"
-        message={`¿Está seguro que desea eliminar al cliente ${cliente.nombre}? Los vehículos asociados se mantendrán sin dueño asignado hasta que se les asigne uno nuevo.`}
+        message={`¿Está seguro que desea eliminar al cliente ${cliente.nombre}? Los vehículos asociados se mantendrán sin dueño asignado y el historial de servicios pagados por este cliente se conservará.`}
         onConfirm={handleDeleteCliente}
         onCancel={() => setShowDeleteDialog(false)}
       />
@@ -130,11 +128,11 @@ export function ClienteDetail({ cliente, onBack }: ClienteDetailProps) {
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4 pt-4 border-t border-primary/10">
             <div className="text-center">
               <div className="text-2xl font-bold text-primary">{vehiculos.length}</div>
-              <div className="text-sm text-foreground/60">Vehículos</div>
+              <div className="text-sm text-foreground/60">Vehículos Actuales</div>
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold text-primary">{servicios.length}</div>
-              <div className="text-sm text-foreground/60">Servicios</div>
+              <div className="text-sm text-foreground/60">Servicios Pagados</div>
             </div>
             <div className="text-center col-span-2 md:col-span-1">
               <div className="text-2xl font-bold text-primary">{formatCurrency(totalGastado)}</div>
@@ -149,12 +147,12 @@ export function ClienteDetail({ cliente, onBack }: ClienteDetailProps) {
         <CardHeader>
           <CardTitle className="text-primary flex items-center gap-2">
             <Car className="h-5 w-5" />
-            Vehículos ({vehiculos.length})
+            Vehículos Actuales ({vehiculos.length})
           </CardTitle>
         </CardHeader>
         <CardContent>
           {vehiculos.length === 0 ? (
-            <p className="text-foreground/60 text-center py-4">No hay vehículos registrados</p>
+            <p className="text-foreground/60 text-center py-4">No hay vehículos registrados actualmente</p>
           ) : (
             <div className="space-y-3">
               {vehiculos.map((vehiculo) => (
@@ -183,8 +181,11 @@ export function ClienteDetail({ cliente, onBack }: ClienteDetailProps) {
         <CardHeader>
           <CardTitle className="text-primary flex items-center gap-2">
             <Calendar className="h-5 w-5" />
-            Historial de Servicios ({servicios.length})
+            Historial de Servicios Pagados ({servicios.length})
           </CardTitle>
+          <p className="text-sm text-foreground/60 mt-1">
+            Todos los servicios pagados por este cliente, incluyendo vehículos que ya no le pertenecen
+          </p>
         </CardHeader>
         <CardContent>
           {servicios.length === 0 ? (
@@ -193,12 +194,23 @@ export function ClienteDetail({ cliente, onBack }: ClienteDetailProps) {
             <div className="space-y-3">
               {servicios.map((servicio) => {
                 const vehiculo = vehiculos.find((v) => v.id === servicio.vehicleId)
+                const esVehiculoActual = vehiculo !== undefined
+                
                 return (
                   <div key={servicio.id} className="p-4 border border-primary/10 rounded-lg space-y-2">
                     <div className="flex items-start justify-between">
                       <div>
                         <p className="font-medium text-foreground">
-                          {vehiculo?.marca} {vehiculo?.modelo} - {vehiculo?.matricula}
+                          {vehiculo ? (
+                            `${vehiculo.marca} ${vehiculo.modelo} - ${vehiculo.matricula}`
+                          ) : (
+                            <span className="text-foreground/60">Vehículo vendido/transferido</span>
+                          )}
+                          {!esVehiculoActual && (
+                            <Badge variant="outline" className="ml-2 border-amber-300 text-amber-700 text-xs">
+                              Ya no es dueño
+                            </Badge>
+                          )}
                         </p>
                         <p className="text-sm text-foreground/60">
                           {new Date(servicio.fecha).toLocaleDateString("es-UY")} •{" "}

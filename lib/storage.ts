@@ -14,6 +14,7 @@ export interface Vehicle {
 export interface Service {
   id: string
   vehicleId: string
+  clienteId?: string
   fecha: string
   kilometraje: number
   servicios: string[]
@@ -260,6 +261,7 @@ export const saveService = (service: {
 }): string => {
   const newService = storage.saveService({
     vehicleId: service.vehicleId,
+    clienteId: service.clienteId,
     fecha: service.serviceDate,
     servicios: service.serviceTypes,
     kilometraje: service.mileage,
