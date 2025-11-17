@@ -1,5 +1,12 @@
 import { createClient } from "@/lib/supabase/client"
 import type { Cliente, Vehicle, Service, TipoAceite } from "./storage"
+import { SERVICIOS_DISPONIBLES as SERVICIOS, TIPOS_ACEITE as TIPOS } from "./storage"
+
+// Re-exportando constantes para que estén disponibles
+export { SERVICIOS as SERVICIOS_DISPONIBLES, TIPOS as TIPOS_ACEITE }
+
+// También re-exportar tipos
+export type { Cliente, Vehicle, Service, TipoAceite }
 
 // Cliente functions
 export async function getClientes(): Promise<Cliente[]> {
@@ -577,4 +584,31 @@ export async function getServicesByDateRange(
     estado: s.estado as "En Proceso" | "Finalizado",
     createdAt: s.created_at,
   }))
+}
+
+export const supabaseStorage = {
+  // Cliente methods
+  getClientes,
+  saveCliente,
+  updateCliente,
+  deleteCliente,
+  getClienteById,
+  searchClientes,
+  
+  // Vehicle methods
+  getVehicles,
+  saveVehicle,
+  updateVehicle,
+  deleteVehicle,
+  getVehicleById,
+  searchVehicles,
+  getVehiclesByCliente,
+  
+  // Service methods
+  getServices,
+  saveService,
+  updateService,
+  deleteService,
+  getServicesByVehicle,
+  getServicesByDateRange,
 }

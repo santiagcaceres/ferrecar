@@ -1,12 +1,11 @@
 "use client"
 
 import type React from "react"
-
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { storage, type Vehicle } from "@/lib/storage"
-import { Car, User, Phone, Calendar, Trash2 } from "lucide-react"
+import { supabaseStorage, type Vehicle } from "@/lib/supabase-storage"
+import { Car, User, Phone, Calendar, Trash2 } from 'lucide-react'
 import { useToast } from "@/hooks/use-toast"
 
 interface VehicleListProps {
@@ -16,30 +15,59 @@ interface VehicleListProps {
 
 export function VehicleList({ onSelectVehicle, searchQuery = "" }: VehicleListProps) {
   const [vehicles, setVehicles] = useState<Vehicle[]>([])
+  const [isLoading, setIsLoading] = useState(true)
   const { toast } = useToast()
 
   useEffect(() => {
     loadVehicles()
   }, [searchQuery])
 
-  const loadVehicles = () => {
-    if (searchQuery) {
-      setVehicles(storage.searchVehicles(searchQuery))
-    } else {
-      setVehicles(storage.getVehicles())
+  const loadVehicles = async () => {
+    setIsLoading(true)
+    try {
+      if (searchQuery) {
+        const results = await supabaseStorage.searchVehicles(searchQuery)
+        setVehicles(results)
+      } else {
+        const results = await supabaseStorage.getVehicles()
+        setVehicles(results)
+      }
+    } catch (error) {
+      console.error("[v0] Error al cargar vehículos:", error)
+    } finally {
+      setIsLoading(false)
     }
   }
 
-  const handleDelete = (id: string, e: React.MouseEvent) => {
+  const handleDelete = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation()
     if (confirm("¿Está seguro de eliminar este vehículo?")) {
-      storage.deleteVehicle(id)
-      loadVehicles()
-      toast({
-        title: "Vehículo eliminado",
-        description: "El vehículo ha sido eliminado correctamente",
-      })
+      try {
+        await supabaseStorage.deleteVehicle(id)
+        await loadVehicles()
+        toast({
+          title: "Vehículo eliminado",
+          description: "El vehículo ha sido eliminado correctamente",
+        })
+      } catch (error) {
+        console.error("[v0] Error al eliminar vehículo:", error)
+        toast({
+          title: "Error",
+          description: "No se pudo eliminar el vehículo",
+          variant: "destructive",
+        })
+      }
     }
+  }
+
+  if (isLoading) {
+    return (
+      <Card className="bg-white border-primary/20">
+        <CardContent className="py-8">
+          <p className="text-center text-muted-foreground">Cargando vehículos...</p>
+        </CardContent>
+      </Card>
+    )
   }
 
   if (vehicles.length === 0) {

@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { storage, type Cliente } from "@/lib/storage"
+import { supabaseStorage, type Cliente } from "@/lib/supabase-storage"
 import { useToast } from "@/hooks/use-toast"
 
 interface ClienteFormProps {
@@ -23,12 +23,14 @@ export function ClienteForm({ onSuccess, onCancel }: ClienteFormProps) {
     observaciones: "",
     cedula: "",
   })
+  const [isLoading, setIsLoading] = useState(false)
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setIsLoading(true)
 
     try {
-      const cliente = storage.saveCliente(formData)
+      const cliente = await supabaseStorage.saveCliente(formData)
       toast({
         title: "Cliente registrado",
         description: `${cliente.nombre} ha sido agregado al sistema`,
@@ -44,11 +46,14 @@ export function ClienteForm({ onSuccess, onCancel }: ClienteFormProps) {
 
       onSuccess?.(cliente)
     } catch (error) {
+      console.error("[v0] Error al guardar cliente:", error)
       toast({
         title: "Error",
         description: "No se pudo registrar el cliente",
         variant: "destructive",
       })
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -138,12 +143,13 @@ export function ClienteForm({ onSuccess, onCancel }: ClienteFormProps) {
                 variant="outline"
                 onClick={onCancel}
                 className="border-primary/30 text-foreground bg-transparent"
+                disabled={isLoading}
               >
                 Cancelar
               </Button>
             )}
-            <Button type="submit" className="bg-primary text-primary-foreground hover:bg-primary/90">
-              Registrar Cliente
+            <Button type="submit" className="bg-primary text-primary-foreground hover:bg-primary/90" disabled={isLoading}>
+              {isLoading ? "Guardando..." : "Registrar Cliente"}
             </Button>
           </div>
         </form>

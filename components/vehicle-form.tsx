@@ -1,15 +1,14 @@
 "use client"
 
 import type React from "react"
-
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { storage, type Vehicle, type Cliente } from "@/lib/storage"
+import { supabaseStorage, type Vehicle, type Cliente } from "@/lib/supabase-storage"
 import { useToast } from "@/hooks/use-toast"
-import { Check, ChevronsUpDown } from "lucide-react"
+import { Check, ChevronsUpDown } from 'lucide-react'
 import { cn } from "@/lib/utils"
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
@@ -24,6 +23,7 @@ export function VehicleForm({ onSuccess, onCancel }: VehicleFormProps) {
   const [clientes, setClientes] = useState<Cliente[]>([])
   const [open, setOpen] = useState(false)
   const [selectedCliente, setSelectedCliente] = useState<Cliente | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
 
   const [formData, setFormData] = useState({
     matricula: "",
@@ -33,10 +33,19 @@ export function VehicleForm({ onSuccess, onCancel }: VehicleFormProps) {
   })
 
   useEffect(() => {
-    setClientes(storage.getClientes())
+    loadClientes()
   }, [])
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const loadClientes = async () => {
+    try {
+      const data = await supabaseStorage.getClientes()
+      setClientes(data)
+    } catch (error) {
+      console.error("[v0] Error al cargar clientes:", error)
+    }
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
     if (!selectedCliente) {
@@ -48,8 +57,10 @@ export function VehicleForm({ onSuccess, onCancel }: VehicleFormProps) {
       return
     }
 
+    setIsLoading(true)
+
     try {
-      const vehicle = storage.saveVehicle({
+      const vehicle = await supabaseStorage.saveVehicle({
         ...formData,
         clienteId: selectedCliente.id,
         nombreDueño: selectedCliente.nombre,
@@ -72,11 +83,14 @@ export function VehicleForm({ onSuccess, onCancel }: VehicleFormProps) {
 
       onSuccess?.(vehicle)
     } catch (error) {
+      console.error("[v0] Error al guardar vehículo:", error)
       toast({
         title: "Error",
         description: "No se pudo registrar el vehículo",
         variant: "destructive",
       })
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -214,12 +228,13 @@ export function VehicleForm({ onSuccess, onCancel }: VehicleFormProps) {
                 variant="outline"
                 onClick={onCancel}
                 className="border-primary/30 text-foreground bg-transparent"
+                disabled={isLoading}
               >
                 Cancelar
               </Button>
             )}
-            <Button type="submit" className="bg-primary text-primary-foreground hover:bg-primary/90">
-              Registrar Vehículo
+            <Button type="submit" className="bg-primary text-primary-foreground hover:bg-primary/90" disabled={isLoading}>
+              {isLoading ? "Guardando..." : "Registrar Vehículo"}
             </Button>
           </div>
         </form>

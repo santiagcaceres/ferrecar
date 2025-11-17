@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -9,9 +8,9 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
-import { storage, SERVICIOS_DISPONIBLES, TIPOS_ACEITE, type Vehicle, type TipoAceite } from "@/lib/storage"
+import { supabaseStorage, SERVICIOS_DISPONIBLES, TIPOS_ACEITE, type Vehicle, type TipoAceite } from "@/lib/supabase-storage"
 import { useToast } from "@/hooks/use-toast"
-import { Check, ChevronsUpDown, Search } from "lucide-react"
+import { Check, ChevronsUpDown, Search } from 'lucide-react'
 import { cn } from "@/lib/utils"
 import { Command, CommandEmpty, CommandGroup, CommandItem, CommandList } from "@/components/ui/command"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
@@ -29,10 +28,20 @@ export function ServiceForm({ vehicle: initialVehicle, onSuccess, onCancel }: Se
   const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(initialVehicle || null)
   const [open, setOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
+  const [isLoading, setIsLoading] = useState(false)
 
   useEffect(() => {
-    setVehicles(storage.getVehicles())
+    loadVehicles()
   }, [])
+
+  const loadVehicles = async () => {
+    try {
+      const data = await supabaseStorage.getVehicles()
+      setVehicles(data)
+    } catch (error) {
+      console.error("[v0] Error al cargar vehículos:", error)
+    }
+  }
 
   const [formData, setFormData] = useState({
     fecha: new Date().toISOString().split("T")[0],
@@ -68,7 +77,7 @@ export function ServiceForm({ vehicle: initialVehicle, onSuccess, onCancel }: Se
     })
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
     if (!selectedVehicle) {
@@ -98,13 +107,15 @@ export function ServiceForm({ vehicle: initialVehicle, onSuccess, onCancel }: Se
       return
     }
 
+    setIsLoading(true)
+
     try {
       const servicios = [...formData.servicios]
       if (formData.otroServicio) {
         servicios.push(formData.otroServicio)
       }
 
-      const servicioGuardado = storage.saveService({
+      await supabaseStorage.saveService({
         vehicleId: selectedVehicle.id,
         fecha: formData.fecha,
         kilometraje: Number(formData.kilometraje) || 0,
@@ -123,11 +134,14 @@ export function ServiceForm({ vehicle: initialVehicle, onSuccess, onCancel }: Se
 
       onSuccess?.()
     } catch (error) {
+      console.error("[v0] Error al guardar servicio:", error)
       toast({
         title: "Error",
         description: "No se pudo registrar el servicio",
         variant: "destructive",
       })
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -396,12 +410,13 @@ export function ServiceForm({ vehicle: initialVehicle, onSuccess, onCancel }: Se
                 variant="outline"
                 onClick={onCancel}
                 className="border-primary/30 text-foreground bg-transparent"
+                disabled={isLoading}
               >
                 Cancelar
               </Button>
             )}
-            <Button type="submit" className="bg-primary text-primary-foreground hover:bg-primary/90">
-              Registrar Servicio
+            <Button type="submit" className="bg-primary text-primary-foreground hover:bg-primary/90" disabled={isLoading}>
+              {isLoading ? "Guardando..." : "Registrar Servicio"}
             </Button>
           </div>
         </form>

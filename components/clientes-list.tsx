@@ -1,9 +1,9 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { storage, type Cliente } from "@/lib/storage"
+import { supabaseStorage, type Cliente } from "@/lib/supabase-storage"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { User, Phone, Mail, FileText, Award as IdCard, Car } from "lucide-react"
+import { User, Phone, Mail, FileText, Award as IdCard, Car } from 'lucide-react'
 
 interface ClientesListProps {
   onSelectCliente?: (cliente: Cliente) => void
@@ -11,14 +11,31 @@ interface ClientesListProps {
 
 export function ClientesList({ onSelectCliente }: ClientesListProps) {
   const [clientes, setClientes] = useState<Cliente[]>([])
+  const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
     loadClientes()
   }, [])
 
-  const loadClientes = () => {
-    const data = storage.getClientes()
-    setClientes(data.sort((a, b) => b.createdAt.localeCompare(a.createdAt)))
+  const loadClientes = async () => {
+    try {
+      const data = await supabaseStorage.getClientes()
+      setClientes(data.sort((a, b) => b.createdAt.localeCompare(a.createdAt)))
+    } catch (error) {
+      console.error("[v0] Error al cargar clientes:", error)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <Card className="bg-white border-primary/20">
+        <CardContent className="flex flex-col items-center justify-center py-12">
+          <p className="text-foreground/60 text-center">Cargando clientes...</p>
+        </CardContent>
+      </Card>
+    )
   }
 
   if (clientes.length === 0) {
@@ -35,7 +52,7 @@ export function ClientesList({ onSelectCliente }: ClientesListProps) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
       {clientes.map((cliente) => {
-        const vehiculos = storage.getVehiclesByCliente(cliente.id)
+        const vehiculos = cliente.vehiculos || []
         return (
           <Card
             key={cliente.id}
