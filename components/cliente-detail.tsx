@@ -12,9 +12,10 @@ import { ConfirmDialog } from "@/components/confirm-dialog"
 interface ClienteDetailProps {
   cliente: Cliente
   onBack: () => void
+  onSelectVehicle?: (vehicle: Vehicle) => void
 }
 
-export function ClienteDetail({ cliente, onBack }: ClienteDetailProps) {
+export function ClienteDetail({ cliente, onBack, onSelectVehicle }: ClienteDetailProps) {
   const [vehiculos, setVehiculos] = useState<Vehicle[]>([])
   const [servicios, setServicios] = useState<Service[]>([])
   const [loading, setLoading] = useState(true)
@@ -42,6 +43,12 @@ export function ClienteDetail({ cliente, onBack }: ClienteDetailProps) {
   }
 
   const totalGastado = servicios.reduce((sum, s) => sum + s.costo, 0)
+
+  const handleVehicleClick = (vehiculo: Vehicle) => {
+    if (onSelectVehicle) {
+      onSelectVehicle(vehiculo)
+    }
+  }
 
   const handleDeleteCliente = async () => {
     const success = await supabaseStorage.deleteCliente(cliente.id)
@@ -155,22 +162,22 @@ export function ClienteDetail({ cliente, onBack }: ClienteDetailProps) {
             <p className="text-foreground/60 text-center py-4">No hay vehículos registrados actualmente</p>
           ) : (
             <div className="space-y-3">
-              {vehiculos.map((vehiculo) => (
-                <div
-                  key={vehiculo.id}
-                  className="flex items-center justify-between p-3 border border-primary/10 rounded-lg"
-                >
-                  <div>
-                    <p className="font-medium text-foreground">
-                      {vehiculo.marca} {vehiculo.modelo} ({vehiculo.año})
-                    </p>
-                    <p className="text-sm text-foreground/60">Matrícula: {vehiculo.matricula}</p>
+              {vehiculos.map((vehiculo) => {
+                return (
+                  <div
+                    key={vehiculo.id}
+                    onClick={() => handleVehicleClick(vehiculo)}
+                    className="flex items-center justify-between p-3 border border-primary/10 rounded-lg cursor-pointer hover:bg-primary/5 transition-colors"
+                  >
+                    <div>
+                      <p className="font-medium text-foreground">
+                        {vehiculo.marca} {vehiculo.modelo} ({vehiculo.año})
+                      </p>
+                      <p className="text-sm text-foreground/60">Matrícula: {vehiculo.matricula}</p>
+                    </div>
                   </div>
-                  <Badge className="bg-primary/10 text-primary hover:bg-primary/20">
-                    {servicios.filter((s) => s.vehicleId === vehiculo.id).length} servicios
-                  </Badge>
-                </div>
-              ))}
+                )
+              })}
             </div>
           )}
         </CardContent>
@@ -197,7 +204,10 @@ export function ClienteDetail({ cliente, onBack }: ClienteDetailProps) {
                 const esVehiculoActual = vehiculo !== undefined
                 
                 return (
-                  <div key={servicio.id} className="p-4 border border-primary/10 rounded-lg space-y-2">
+                  <div 
+                    key={servicio.id} 
+                    className="p-4 border border-primary/10 rounded-lg space-y-2 transition-all"
+                  >
                     <div className="flex items-start justify-between">
                       <div>
                         <p className="font-medium text-foreground">

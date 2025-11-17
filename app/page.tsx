@@ -15,7 +15,7 @@ import { ClienteForm } from "@/components/cliente-form"
 import { ClientesList } from "@/components/clientes-list"
 import { ClienteDetail } from "@/components/cliente-detail"
 import { Button } from "@/components/ui/button"
-import { Plus, Car, Wrench, BarChart3, Users } from "lucide-react"
+import { Plus, Car, Wrench, BarChart3, Users } from 'lucide-react'
 import type { Vehicle, Cliente } from "@/lib/storage"
 
 type View = "home" | "vehicles" | "services" | "admin" | "clientes"
@@ -151,6 +151,11 @@ function AppContent() {
                 onBack={() => {
                   setClienteView("list")
                   setSelectedCliente(null)
+                }}
+                onSelectVehicle={(vehicle) => {
+                  setSelectedVehicle(vehicle)
+                  setCurrentView("vehicles")
+                  setVehicleView("detail")
                 }}
               />
             )}
