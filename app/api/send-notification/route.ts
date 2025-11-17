@@ -4,6 +4,7 @@ import type { Service, Vehicle, Cliente } from '@/lib/storage'
 import { TIPOS_ACEITE } from '@/lib/storage'
 import { formatCurrency } from '@/lib/date-utils'
 
+console.log('[v0] Inicializando Resend con API Key:', process.env.RESEND_API_KEY ? 'Configurada' : 'NO CONFIGURADA')
 const resend = new Resend(process.env.RESEND_API_KEY)
 
 async function generatePDFBuffer({
@@ -137,15 +138,26 @@ async function generatePDFBuffer({
 
 export async function POST(request: Request) {
   try {
+    console.log('[v0] Endpoint de notificación llamado')
     const body = await request.json()
+    console.log('[v0] Datos recibidos:', { 
+      hasService: !!body.service, 
+      hasVehicle: !!body.vehicle, 
+      hasCliente: !!body.cliente,
+      clienteEmail: body.cliente?.email 
+    })
+    
     const { service, vehicle, cliente } = body as { service: Service; vehicle: Vehicle; cliente: Cliente }
 
     if (!service || !vehicle || !cliente) {
+      console.log('[v0] Error: Faltan datos necesarios')
       return NextResponse.json({ error: 'Faltan datos necesarios' }, { status: 400 })
     }
 
+    console.log('[v0] Generando PDF...')
     // Generar PDF como buffer
     const pdfBuffer = await generatePDFBuffer({ service, vehicle, cliente })
+    console.log('[v0] PDF generado, tamaño:', pdfBuffer.length, 'bytes')
 
     // Construir lista de servicios realizados
     const serviciosRealizados = service.servicios.join(', ')
@@ -156,6 +168,7 @@ export async function POST(request: Request) {
       proximoCambioInfo = `\n\n⚠️ IMPORTANTE: Próximo cambio de aceite recomendado a los ${service.proximoCambioKm.toLocaleString()} km`
     }
 
+    console.log('[v0] Intentando enviar email a:', cliente.email)
     const { data, error } = await resend.emails.send({
       from: 'FerreCar Service <contacto@ferrecarservice.com>',
       to: [cliente.email],
@@ -219,13 +232,17 @@ export async function POST(request: Request) {
     })
 
     if (error) {
-      console.error('Error enviando email:', error)
+      console.error('[v0] Error enviando email:', error)
       return NextResponse.json({ error: 'Error al enviar el email', details: error }, { status: 500 })
     }
 
+    console.log('[v0] Email enviado exitosamente:', data)
     return NextResponse.json({ success: true, data })
   } catch (error) {
-    console.error('Error en el endpoint:', error)
-    return NextResponse.json({ error: 'Error interno del servidor', details: error }, { status: 500 })
+    console.error('[v0] Error en el endpoint:', error)
+    return NextResponse.json({ 
+      error: 'Error interno del servidor', 
+      details: error instanceof Error ? error.message : 'Error desconocido' 
+    }, { status: 500 })
   }
 }
