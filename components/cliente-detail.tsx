@@ -5,7 +5,7 @@ import { supabaseStorage, type Cliente, type Vehicle, type Service } from "@/lib
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { ArrowLeft, User, Phone, Mail, FileText, Award as IdCard, Car, Calendar, Trash2 } from 'lucide-react'
+import { ArrowLeft, User, Phone, Mail, FileText, Car, Calendar, Trash2 } from 'lucide-react'
 import { formatCurrency } from "@/lib/date-utils"
 import { ConfirmDialog } from "@/components/confirm-dialog"
 
@@ -51,7 +51,7 @@ export function ClienteDetail({ cliente, onBack }: ClienteDetailProps) {
       setShowDeleteDialog(false)
       onBack()
     } else {
-      alert("Error al eliminar el cliente. Verifica que no tenga vehículos asociados.")
+      alert("Error al eliminar el cliente.")
     }
   }
 
@@ -85,7 +85,7 @@ export function ClienteDetail({ cliente, onBack }: ClienteDetailProps) {
       <ConfirmDialog
         isOpen={showDeleteDialog}
         title="Eliminar Cliente"
-        message={`¿Está seguro que desea eliminar al cliente ${cliente.nombre}? Esta acción no se puede deshacer y eliminará todos sus vehículos y servicios asociados.`}
+        message={`¿Está seguro que desea eliminar al cliente ${cliente.nombre}? Los vehículos asociados se mantendrán sin dueño asignado hasta que se les asigne uno nuevo.`}
         onConfirm={handleDeleteCliente}
         onCancel={() => setShowDeleteDialog(false)}
       />
@@ -100,15 +100,6 @@ export function ClienteDetail({ cliente, onBack }: ClienteDetailProps) {
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {cliente.cedula && (
-              <div className="flex items-center gap-2 text-foreground">
-                <IdCard className="h-5 w-5 text-primary" />
-                <div>
-                  <p className="text-sm text-foreground/60">Cédula</p>
-                  <p className="font-medium">{cliente.cedula}</p>
-                </div>
-              </div>
-            )}
             <div className="flex items-center gap-2 text-foreground">
               <Phone className="h-5 w-5 text-primary" />
               <div>
@@ -126,7 +117,7 @@ export function ClienteDetail({ cliente, onBack }: ClienteDetailProps) {
               </div>
             )}
             {cliente.observaciones && (
-              <div className="flex items-center gap-2 text-foreground">
+              <div className="flex items-center gap-2 text-foreground md:col-span-2">
                 <FileText className="h-5 w-5 text-primary" />
                 <div>
                   <p className="text-sm text-foreground/60">Observaciones</p>

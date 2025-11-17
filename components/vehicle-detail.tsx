@@ -4,10 +4,14 @@ import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { supabaseStorage, type Vehicle, type Service, type Cliente, TIPOS_ACEITE } from "@/lib/supabase-storage"
-import { ArrowLeft, Car, User, Phone, Mail, Calendar, Wrench, Download, Trash2 } from 'lucide-react'
+import { ArrowLeft, Car, User, Phone, Mail, Calendar, Wrench, Download, Trash2, UserX } from 'lucide-react'
 import { formatDate, formatCurrency } from "@/lib/date-utils"
 import { generateInvoicePDF } from "@/lib/pdf-generator"
 import { ConfirmDialog } from "@/components/confirm-dialog"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command"
+import { Check } from 'lucide-react'
+import { cn } from "@/lib/utils"
 
 interface VehicleDetailProps {
   vehicleId: string
@@ -21,6 +25,11 @@ export function VehicleDetail({ vehicleId, onBack, onAddService }: VehicleDetail
   const [cliente, setCliente] = useState<Cliente | null>(null)
   const [loading, setLoading] = useState(true)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [showChangeOwnerDialog, setShowChangeOwnerDialog] = useState(false)
+  const [clientes, setClientes] = useState<Cliente[]>([])
+  const [openCombobox, setOpenCombobox] = useState(false)
+  const [selectedClienteId, setSelectedClienteId] = useState("")
+  const [searchQuery, setSearchQuery] = useState("")
 
   useEffect(() => {
     loadData()
@@ -37,6 +46,8 @@ export function VehicleDetail({ vehicleId, onBack, onAddService }: VehicleDetail
         const c = await supabaseStorage.getClienteById(v.clienteId)
         setCliente(c)
       }
+      const allClientes = await supabaseStorage.getClientes()
+      setClientes(allClientes)
     } catch (error) {
       console.error("Error cargando datos:", error)
     } finally {
@@ -64,6 +75,32 @@ export function VehicleDetail({ vehicleId, onBack, onAddService }: VehicleDetail
     }
   }
 
+  const handleChangeOwner = async () => {
+    if (!vehicle || !selectedClienteId) return
+    
+    const success = await supabaseStorage.updateVehicle(vehicle.id, {
+      clienteId: selectedClienteId
+    })
+    
+    if (success) {
+      setShowChangeOwnerDialog(false)
+      setSelectedClienteId("")
+      setSearchQuery("")
+      await loadData()
+    } else {
+      alert("Error al cambiar el dueño del vehículo")
+    }
+  }
+
+  const filteredClientes = clientes.filter((c) => {
+    const query = searchQuery.toLowerCase()
+    return (
+      c.nombre.toLowerCase().includes(query) ||
+      c.telefono.includes(query) ||
+      (c.email && c.email.toLowerCase().includes(query))
+    )
+  })
+
   if (loading) {
     return (
       <Card className="bg-white border-primary/20">
@@ -86,10 +123,18 @@ export function VehicleDetail({ vehicleId, onBack, onAddService }: VehicleDetail
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-4 flex-wrap">
         <Button variant="outline" onClick={onBack} className="border-primary/30 text-foreground bg-transparent">
           <ArrowLeft className="h-4 w-4 mr-2" />
           Volver
+        </Button>
+        <Button
+          variant="outline"
+          onClick={() => setShowChangeOwnerDialog(true)}
+          className="border-accent/30 text-accent hover:bg-accent/10"
+        >
+          <UserX className="h-4 w-4 mr-2" />
+          Cambiar Dueño
         </Button>
         <Button
           variant="outline"
@@ -107,6 +152,74 @@ export function VehicleDetail({ vehicleId, onBack, onAddService }: VehicleDetail
         message={`¿Está seguro que desea eliminar el vehículo ${vehicle.marca} ${vehicle.modelo} - ${vehicle.matricula}? Esta acción no se puede deshacer.`}
         onConfirm={handleDeleteVehicle}
         onCancel={() => setShowDeleteDialog(false)}
+      />
+
+      <ConfirmDialog
+        isOpen={showChangeOwnerDialog}
+        title="Cambiar Dueño del Vehículo"
+        message={
+          <div className="space-y-4">
+            <p className="text-foreground/80">
+              Seleccione el nuevo dueño para el vehículo {vehicle.marca} {vehicle.modelo} - {vehicle.matricula}
+            </p>
+            <Popover open={openCombobox} onOpenChange={setOpenCombobox}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  role="combobox"
+                  aria-expanded={openCombobox}
+                  className="w-full justify-between border-primary/30"
+                >
+                  {selectedClienteId
+                    ? clientes.find((c) => c.id === selectedClienteId)?.nombre
+                    : "Seleccionar cliente..."}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-full p-0" align="start">
+                <Command>
+                  <CommandInput
+                    placeholder="Buscar por nombre, teléfono o email..."
+                    value={searchQuery}
+                    onValueChange={setSearchQuery}
+                  />
+                  <CommandEmpty>No se encontraron clientes</CommandEmpty>
+                  <CommandGroup className="max-h-64 overflow-auto">
+                    {filteredClientes.map((c) => (
+                      <CommandItem
+                        key={c.id}
+                        value={c.id}
+                        onSelect={(value) => {
+                          setSelectedClienteId(value)
+                          setOpenCombobox(false)
+                        }}
+                      >
+                        <Check
+                          className={cn(
+                            "mr-2 h-4 w-4",
+                            selectedClienteId === c.id ? "opacity-100" : "opacity-0"
+                          )}
+                        />
+                        <div className="flex flex-col">
+                          <span className="font-medium">{c.nombre}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {c.telefono} {c.email && `• ${c.email}`}
+                          </span>
+                        </div>
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                </Command>
+              </PopoverContent>
+            </Popover>
+          </div>
+        }
+        onConfirm={handleChangeOwner}
+        onCancel={() => {
+          setShowChangeOwnerDialog(false)
+          setSelectedClienteId("")
+          setSearchQuery("")
+        }}
+        confirmDisabled={!selectedClienteId}
       />
 
       <Card className="bg-white border-primary/20">

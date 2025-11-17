@@ -2,16 +2,18 @@
 
 import { Button } from "@/components/ui/button"
 import { AlertTriangle } from 'lucide-react'
+import { ReactNode } from 'react'
 
 interface ConfirmDialogProps {
   isOpen: boolean
   title: string
-  message: string
+  message: string | ReactNode
   onConfirm: () => void
   onCancel: () => void
+  confirmDisabled?: boolean
 }
 
-export function ConfirmDialog({ isOpen, title, message, onConfirm, onCancel }: ConfirmDialogProps) {
+export function ConfirmDialog({ isOpen, title, message, onConfirm, onCancel, confirmDisabled = false }: ConfirmDialogProps) {
   if (!isOpen) return null
 
   return (
@@ -31,7 +33,9 @@ export function ConfirmDialog({ isOpen, title, message, onConfirm, onCancel }: C
           </div>
 
           {/* Message */}
-          <p className="text-foreground">{message}</p>
+          <div className="text-foreground">
+            {typeof message === 'string' ? <p>{message}</p> : message}
+          </div>
 
           {/* Actions */}
           <div className="flex gap-3 pt-4">
@@ -44,9 +48,10 @@ export function ConfirmDialog({ isOpen, title, message, onConfirm, onCancel }: C
             </Button>
             <Button
               onClick={onConfirm}
-              className="flex-1 bg-red-600 hover:bg-red-700 text-white"
+              disabled={confirmDisabled}
+              className="flex-1 bg-red-600 hover:bg-red-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Eliminar
+              Confirmar
             </Button>
           </div>
         </div>
