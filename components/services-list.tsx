@@ -67,7 +67,8 @@ export function ServicesList({ startDate, endDate }: ServicesListProps) {
           if (vehicle) {
             vehiclesMap.set(service.vehicleId, vehicle)
 
-            if (!clientesMap.has(vehicle.clienteId)) {
+            // Only fetch cliente if vehicle has a valid clienteId
+            if (vehicle.clienteId && !clientesMap.has(vehicle.clienteId)) {
               const cliente = await supabaseStorage.getClienteById(vehicle.clienteId)
               if (cliente) {
                 clientesMap.set(vehicle.clienteId, cliente)
@@ -75,11 +76,19 @@ export function ServicesList({ startDate, endDate }: ServicesListProps) {
             }
           }
         }
+
+        // Also load cliente directly from service if it has clienteId
+        if (service.clienteId && !clientesMap.has(service.clienteId)) {
+          const cliente = await supabaseStorage.getClienteById(service.clienteId)
+          if (cliente) {
+            clientesMap.set(service.clienteId, cliente)
+          }
+        }
       }
       setVehicles(vehiclesMap)
       setClientes(clientesMap)
     } catch (error) {
-      console.error("Error cargando servicios:", error)
+      console.error("[v0] Error cargando servicios:", error)
     } finally {
       setLoading(false)
     }
@@ -109,13 +118,31 @@ export function ServicesList({ startDate, endDate }: ServicesListProps) {
   const handleDownloadInvoice = (service: Service) => {
     const vehicle = vehicles.get(service.vehicleId)
     if (!vehicle) {
-      alert("No se encontró el vehículo")
+      toast({
+        title: "Error",
+        description: "No se encontró el vehículo",
+        variant: "destructive",
+      })
       return
     }
 
-    const cliente = clientes.get(vehicle.clienteId)
+    const clienteId = service.clienteId || vehicle.clienteId
+    if (!clienteId) {
+      toast({
+        title: "Error",
+        description: "Este servicio no tiene un cliente asociado",
+        variant: "destructive",
+      })
+      return
+    }
+
+    const cliente = clientes.get(clienteId)
     if (!cliente) {
-      alert("No se encontró el cliente")
+      toast({
+        title: "Error",
+        description: "No se encontró el cliente",
+        variant: "destructive",
+      })
       return
     }
 
@@ -125,25 +152,48 @@ export function ServicesList({ startDate, endDate }: ServicesListProps) {
   const handleFinalizarServicio = async (service: Service) => {
     const vehicle = vehicles.get(service.vehicleId)
     if (!vehicle) {
-      alert("No se encontró el vehículo")
+      toast({
+        title: "Error",
+        description: "No se encontró el vehículo",
+        variant: "destructive",
+      })
       return
     }
 
-    const cliente = clientes.get(vehicle.clienteId)
+    const clienteId = service.clienteId || vehicle.clienteId
+    if (!clienteId) {
+      toast({
+        title: "Error",
+        description: "Este servicio no tiene un cliente asociado",
+        variant: "destructive",
+      })
+      return
+    }
+
+    const cliente = clientes.get(clienteId)
     if (!cliente) {
-      alert("No se encontró el cliente")
+      toast({
+        title: "Error",
+        description: "No se encontró el cliente",
+        variant: "destructive",
+      })
       return
     }
 
     const updatedService = await supabaseStorage.updateService(service.id, { estado: "Finalizado" })
     if (!updatedService) {
-      alert("Error al finalizar el servicio")
+      toast({
+        title: "Error",
+        description: "Error al finalizar el servicio",
+        variant: "destructive",
+      })
       return
     }
 
     loadServices()
 
     try {
+      console.log("[v0] Enviando notificación por email...")
       const response = await fetch('/api/send-notification', {
         method: 'POST',
         headers: {
@@ -156,23 +206,26 @@ export function ServicesList({ startDate, endDate }: ServicesListProps) {
         }),
       })
 
+      const responseData = await response.json()
+      console.log("[v0] Respuesta del servidor:", responseData)
+
       if (response.ok) {
         toast({
           title: "Servicio Finalizado",
-          description: `Email enviado a ${cliente.email} con la factura adjunta.`,
+          description: `Email enviado exitosamente a ${cliente.email} con la factura adjunta.`,
           duration: 5000,
         })
       } else {
-        const errorData = await response.json()
+        console.error("[v0] Error en respuesta:", responseData)
         toast({
           title: "Servicio Finalizado",
-          description: `El servicio fue finalizado pero hubo un error al enviar el email: ${errorData.error}`,
+          description: `El servicio fue finalizado pero hubo un error al enviar el email: ${responseData.error}`,
           variant: "destructive",
           duration: 5000,
         })
       }
     } catch (error) {
-      console.error('Error enviando notificación:', error)
+      console.error('[v0] Error enviando notificación:', error)
       toast({
         title: "Servicio Finalizado",
         description: "El servicio fue finalizado pero hubo un error al enviar el email.",
@@ -191,7 +244,10 @@ export function ServicesList({ startDate, endDate }: ServicesListProps) {
           variant="outline"
           className="bg-green-500 text-white hover:bg-green-600 border-0"
           onClick={() => {
-            const mensaje = `Hola ${cliente.nombre}, su vehículo ${vehicle.marca} ${vehicle.modelo} (${vehicle.matricula}) está listo para retirar. Servicios realizados: ${updatedService.servicios.join(', ')}. Total: ${formatCurrency(updatedService.costo)}${updatedService.proximoCambioKm ? `. Próximo cambio de aceite: ${updatedService.proximoCambioKm.toLocaleString()} km` : ''}. ¡Gracias por confiar en FerreCar Service!`
+            const proximoCambioTexto = updatedService.proximoCambioKm 
+              ? `. Próximo cambio de aceite: ${updatedService.proximoCambioKm.toLocaleString()} km` 
+              : ''
+            const mensaje = `Hola ${cliente.nombre}, su vehículo ${vehicle.marca} ${vehicle.modelo} (${vehicle.matricula}) está listo para retirar. Servicios realizados: ${updatedService.servicios.join(', ')}. Total: ${formatCurrency(updatedService.costo)}${proximoCambioTexto}. ¡Gracias por confiar en FerreCar Service!`
             const url = `https://wa.me/${cliente.telefono.replace(/\D/g, '')}?text=${encodeURIComponent(mensaje)}`
             window.open(url, '_blank')
           }}

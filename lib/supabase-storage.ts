@@ -427,6 +427,21 @@ export async function saveService(
 ): Promise<Service | null> {
   const supabase = createClient()
   
+  console.log("[v0] Guardando servicio para vehículo:", service.vehicleId)
+  
+  const { data: vehicleData, error: vehicleError } = await supabase
+    .from("vehiculos")
+    .select("cliente_id")
+    .eq("id", service.vehicleId)
+    .single()
+
+  if (vehicleError) {
+    console.error("[v0] Error obteniendo vehículo:", vehicleError)
+  }
+
+  const clienteId = vehicleData?.cliente_id || null
+  console.log("[v0] Cliente ID obtenido del vehículo:", clienteId)
+
   // Calcular próximo cambio de aceite si aplica
   let proximoCambioAceite = null
   if (service.tipoAceite && service.servicios.includes("Cambio de aceite")) {
@@ -438,17 +453,11 @@ export async function saveService(
     proximoCambioAceite = service.kilometraje + duraciones[service.tipoAceite]
   }
 
-  const { data: vehicleData } = await supabase
-    .from("vehiculos")
-    .select("cliente_id")
-    .eq("id", service.vehicleId)
-    .single()
-
   const { data, error } = await supabase
     .from("servicios")
     .insert({
       vehiculo_id: service.vehicleId,
-      cliente_id: vehicleData?.cliente_id,
+      cliente_id: clienteId, // Usar la variable clienteId en lugar de acceder directamente
       fecha: service.fecha,
       kilometraje: service.kilometraje,
       servicios_realizados: service.servicios,
@@ -463,9 +472,11 @@ export async function saveService(
     .single()
 
   if (error) {
-    console.error("Error saving service:", error)
+    console.error("[v0] Error saving service:", error)
     return null
   }
+
+  console.log("[v0] Servicio guardado exitosamente:", data.id)
 
   return {
     id: data.id,

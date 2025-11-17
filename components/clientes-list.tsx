@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { supabaseStorage, type Cliente } from "@/lib/supabase-storage"
+import { supabaseStorage, type Cliente, type Vehicle } from "@/lib/supabase-storage"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { User, Phone, Mail, FileText, Award as IdCard, Car } from 'lucide-react'
 
@@ -9,8 +9,12 @@ interface ClientesListProps {
   onSelectCliente?: (cliente: Cliente) => void
 }
 
+interface ClienteConVehiculos extends Cliente {
+  vehiculosCount: number
+}
+
 export function ClientesList({ onSelectCliente }: ClientesListProps) {
-  const [clientes, setClientes] = useState<Cliente[]>([])
+  const [clientes, setClientes] = useState<ClienteConVehiculos[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
@@ -19,8 +23,20 @@ export function ClientesList({ onSelectCliente }: ClientesListProps) {
 
   const loadClientes = async () => {
     try {
-      const data = await supabaseStorage.getClientes()
-      setClientes(data.sort((a, b) => b.createdAt.localeCompare(a.createdAt)))
+      const clientesData = await supabaseStorage.getClientes()
+      
+      // Cargar el conteo de vehículos para cada cliente
+      const clientesConVehiculos = await Promise.all(
+        clientesData.map(async (cliente) => {
+          const vehiculos = await supabaseStorage.getVehiclesByCliente(cliente.id)
+          return {
+            ...cliente,
+            vehiculosCount: vehiculos.length
+          }
+        })
+      )
+      
+      setClientes(clientesConVehiculos.sort((a, b) => b.createdAt.localeCompare(a.createdAt)))
     } catch (error) {
       console.error("[v0] Error al cargar clientes:", error)
     } finally {
@@ -92,7 +108,7 @@ export function ClientesList({ onSelectCliente }: ClientesListProps) {
               )}
               <div className="flex items-center gap-2 text-sm font-medium text-primary pt-2 border-t border-primary/10">
                 <Car className="h-4 w-4" />
-                <span>{vehiculos.length} vehículo(s)</span>
+                <span>{cliente.vehiculosCount} vehículo{cliente.vehiculosCount !== 1 ? 's' : ''}</span>
               </div>
             </CardContent>
           </Card>
