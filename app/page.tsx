@@ -14,8 +14,9 @@ import { AdminDashboard } from "@/components/admin-dashboard"
 import { ClienteForm } from "@/components/cliente-form"
 import { ClientesList } from "@/components/clientes-list"
 import { ClienteDetail } from "@/components/cliente-detail"
+import { PaymentReminder } from "@/components/payment-reminder"
 import { Button } from "@/components/ui/button"
-import { Plus, Car, Wrench, BarChart3, Users } from 'lucide-react'
+import { Plus, Car, Wrench, BarChart3, Users } from "lucide-react"
 import type { Vehicle, Cliente } from "@/lib/storage"
 
 type View = "home" | "vehicles" | "services" | "admin" | "clientes"
@@ -65,6 +66,7 @@ function AppContent() {
 
   return (
     <div className="min-h-screen bg-background">
+      <PaymentReminder />
       <Header />
       <Navigation currentView={currentView} onNavigate={handleNavigate} />
 
